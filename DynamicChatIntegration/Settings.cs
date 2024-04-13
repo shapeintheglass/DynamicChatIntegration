@@ -19,6 +19,8 @@ namespace DynamicChatIntegration
 
         public string BotUsername { get; set; }
 
+        public bool PostResponsesInChat { get; set; }
+
         public bool RestrictDebugCommandsToAllowedUsers { get; set; }
 
         public string OriginalIniPath { get; set; }

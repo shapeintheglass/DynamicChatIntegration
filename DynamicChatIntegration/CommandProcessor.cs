@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text.RegularExpressions;
 
@@ -104,7 +103,7 @@ namespace DynamicChatIntegration
             return false;
         }
 
-        public void ProcessCommand(string line, bool allowDebugCmd)
+        public string? ProcessCommand(string line, bool allowDebugCmd)
         {
             // Sanitize
             line = line.Trim();
@@ -114,21 +113,22 @@ namespace DynamicChatIntegration
             if (_Commands.TryGetValue(caseInsensitive, out string? substitutedDebugCommand))
             {
                 _Logger.LogDebug("Executing `{cmd}` as `{sub}`", caseInsensitive, substitutedDebugCommand);
-                ProcessDebugCommand(substitutedDebugCommand);
+                return ProcessDebugCommand(substitutedDebugCommand);
             }
             else if (allowDebugCmd)
             {
-                ProcessDebugCommand(line);
+                return ProcessDebugCommand(line);
             }
+            return null;
         }
 
-        private void ProcessDebugCommand(string cmd)
+        private string? ProcessDebugCommand(string cmd)
         {
             // Sanity check: Only respond to commands that start with the given prefix
             if (!cmd.StartsWith(_Settings.CurrentValue.CommandPrefix + _Settings.CurrentValue.CommandDelimiter, StringComparison.InvariantCultureIgnoreCase))
             {
                 _Logger.LogDebug("Did not recognize debug command. Did not start with [{prefix}]", _Settings.CurrentValue.CommandPrefix + _Settings.CurrentValue.CommandDelimiter);
-                return;
+                return null;
             }
 
             // Split and process remainder
@@ -138,7 +138,7 @@ namespace DynamicChatIntegration
             {
                 _Logger.LogDebug("Recognized as reset command.");
                 _ResetFunc();
-                return;
+                return "Reset successful.";
             }
 
             // Process read command
@@ -148,8 +148,9 @@ namespace DynamicChatIntegration
                 var section = readCmdMatch.Groups[SectionGroupName].Value;
                 var property = readCmdMatch.Groups[PropertyGroupName].Value;
                 var value = _GetFunc(section, property);
-                _Logger.LogDebug("Recognized as get command. [{section}]{property} = {value}", section, property, value);
-                return;
+                var toReturn = SectionPropertyValueToString(section, property, value);
+                _Logger.LogDebug("Recognized as get command. {toReturn}", toReturn);
+                return string.Format("Value of {0}.", toReturn);
             }
 
             // Process write command
@@ -160,8 +161,23 @@ namespace DynamicChatIntegration
                 var property = setCmdMatch.Groups[PropertyGroupName].Value;
                 var value = setCmdMatch.Groups[ValueGroupName].Value;
                 _SetFunc(section, property, value);
-                _Logger.LogDebug("Recognized as set command. [{section}]{property} = {value}", section, property, value);
-                return;
+                var toReturn = SectionPropertyValueToString(section, property, value);
+                _Logger.LogDebug("Recognized as set command. {toReturn}", toReturn);
+                return string.Format("Set {0}.", toReturn);
+            }
+
+            return null;
+        }
+
+        private string SectionPropertyValueToString(string section, string property, string value)
+        {
+            if (string.IsNullOrEmpty(section))
+            {
+                return $"{property} = {value}";
+            }
+            else
+            {
+                return $"[{section}] {property} = {value}";
             }
         }
     }

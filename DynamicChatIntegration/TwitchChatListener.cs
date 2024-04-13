@@ -5,7 +5,6 @@ using TwitchLib.Communication.Clients;
 using TwitchLib.Communication.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Configuration;
 
 namespace DynamicChatIntegration
 {
@@ -54,7 +53,7 @@ namespace DynamicChatIntegration
         {
             if (string.IsNullOrWhiteSpace(_Settings.CurrentValue.AccessToken))
             {
-                _Logger.LogError("Please set an access token in appsettings.json: https://id.twitch.tv/oauth2/authorize?response_type=token&client_id=z6b0tfei2a12oebv47aat3vckndozj&redirect_uri=https://twitchapps.com/tokengen/&scope=chat%3Aread");
+                _Logger.LogError("Please set an access token in appsettings.json: https://twitchtokengenerator.com/quick/JqwV9wWVq0");
                 return false;
             }
 
@@ -78,6 +77,8 @@ namespace DynamicChatIntegration
             };
             WebSocketClient customClient = new WebSocketClient(clientOptions);
             _Client = new TwitchClient(customClient);
+            
+
             _Client.Initialize(credentials, _Settings.CurrentValue.Channel);
 
             _Client.OnLog += Client_OnLog;
@@ -133,7 +134,11 @@ namespace DynamicChatIntegration
             if (_CommandProcessor.IsValidCommand(msg, allowDebugCmds))
             {
                 _Logger.LogInformation("{user} invoked `{cmd}`", user, msg);
-                _CommandProcessor.ProcessCommand(msg, allowDebugCmds);
+                var resp = _CommandProcessor.ProcessCommand(msg, allowDebugCmds);
+                if (_Settings.CurrentValue.PostResponsesInChat && !string.IsNullOrEmpty(resp))
+                {
+                    _Client.SendMessage(e.ChatMessage.Channel, resp);
+                }
             }
         }
     }
