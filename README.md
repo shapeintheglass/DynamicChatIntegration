@@ -77,7 +77,9 @@ It is also possible to adjust the underlying syntax, such as the default value o
 
 ## Permissions
 
-To only allow trusted users to run the underlying commands, set `"RestrictDebugCommandsToAllowedUsers": true` and define allowed users by their username in `"DebugCommandsAllowedUsers"`.
+To only allow trusted users to run the non-custom commands, set `"RestrictDebugCommandsToAllowedUsers": true` and define allowed users by their username in `"DebugCommandsAllowedUsers"`.
+
+This only applies to default underlying commands such as `!ini foo=bar`, but not to custom created commands like `!foobar`.
 
 Example:
 ```
