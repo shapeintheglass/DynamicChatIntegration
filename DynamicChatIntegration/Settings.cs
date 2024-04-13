@@ -1,63 +1,36 @@
 ﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
-
 namespace DynamicChatIntegration
 {
-    internal class Settings
+    public class Settings
     {
-        private IConfiguration _Configuration;
-        private IChangeToken _ChangeToken;
+        public string[] DebugCommandsAllowedUsers { get; set; }
 
-        private const string TwitchSettingsSectionName = "TwitchSettings";
-        private const string CommandSettingsSectionName = "CommandSettings";
-        private const string IniFileSettingsSectionName = "IniFileSettings";
-        private const string DebugCommandSettingsSectionName = "DebugCommandSettings";
+        public string[][] Commands { get; set; }
 
-        public Settings(IConfiguration configuration)
-        {
-            _Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-            _ChangeToken = _Configuration.GetReloadToken();
-        }
+        public string CommandSetRegex { get; set; }
 
-        public void RegisterChangeCallback(Action<object?> callback, object? state)
-        {
-            _ChangeToken.RegisterChangeCallback(callback, state);
-        }
+        public string CommandGetRegex { get; set; }
 
-        internal string AccessToken => _Configuration[$"{TwitchSettingsSectionName}:AccessToken"] ?? "";
+        public string AccessToken { get; set; }
 
-        internal string Channel => _Configuration[$"{TwitchSettingsSectionName}:Channel"] ?? "";
+        public string Channel { get; set; }
 
-        internal string BotUsername => _Configuration[$"{TwitchSettingsSectionName}:BotUsername"] ?? "";
+        public string BotUsername { get; set; }
 
-        internal bool RestrictDebugCommandsToAllowedUsers => bool.TryParse(
-            _Configuration[$"{TwitchSettingsSectionName}:RestrictDebugCommandsToAllowedUsers"],
-            out var parsed) ? parsed : false;
+        public bool RestrictDebugCommandsToAllowedUsers { get; set; }
 
-        internal string[] DebugCommandsAllowedUsers =>
-            _Configuration.GetSection(TwitchSettingsSectionName).GetSection("DebugCommandsAllowedUsers").Get<string[]>()
-            ?? Array.Empty<string>();
+        public string OriginalIniPath { get; set; }
 
-        internal string[][] Commands => 
-            _Configuration.GetSection(CommandSettingsSectionName).GetSection("Commands").Get<string[][]>()
-            ?? Array.Empty<string[]>();
+        public string ModifiedIniPath { get; set; }
 
-        internal string OriginalIniPath => _Configuration[$"{IniFileSettingsSectionName}:OriginalIniPath"] ?? "";
+        public string CommandPrefix { get; set; }
 
-        internal string ModifiedIniPath => _Configuration[$"{IniFileSettingsSectionName}:ModifiedIniPath"] ?? "";
+        public string CommandReset { get; set; }
 
-        internal string CommandPrefix => _Configuration[$"{DebugCommandSettingsSectionName}:CommandPrefix"] ?? "";
+        public string CommandDelimiter { get; set; }
 
-        internal string CommandReset => _Configuration[$"{DebugCommandSettingsSectionName}:CommandReset"] ?? "";
-
-        internal string CommandDelimiter => _Configuration[$"{DebugCommandSettingsSectionName}:CommandDelimiter"] ?? "";
-
-        internal string CommandSetRegex => _Configuration[$"{DebugCommandSettingsSectionName}:CommandSetRegex"] ?? "";
-
-        internal string CommandGetRegex => _Configuration[$"{DebugCommandSettingsSectionName}:CommandGetRegex"] ?? "";
-
-        internal int MaxMessageLength =>
-            int.TryParse(_Configuration[$"{DebugCommandSettingsSectionName}:MaxMessageLength"],
-                out var parsed) ? parsed : int.MaxValue;
+        public int MaxMessageLength { get; set; } = int.MaxValue;
     }
 }

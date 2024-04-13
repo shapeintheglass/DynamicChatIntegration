@@ -4,47 +4,73 @@ using TwitchLib.Client;
 using TwitchLib.Communication.Clients;
 using TwitchLib.Communication.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
 
 namespace DynamicChatIntegration
 {
     internal class TwitchChatListener
     {
-        private Settings _Settings;
+        private IOptionsMonitor<Settings> _Settings;
         private ILogger _Logger;
         private CommandProcessor _CommandProcessor;
 
-        private HashSet<string> _AllowedDebugUsernames;
-
         private TwitchClient _Client;
+        private HashSet<string> _AllowedUsers;
 
-        public TwitchChatListener(Settings settings, ILogger logger, CommandProcessor commandProcessor)
+        public TwitchChatListener(IOptionsMonitor<Settings> settings, ILogger logger, CommandProcessor commandProcessor)
         {
             _Settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _Logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _CommandProcessor = commandProcessor ?? throw new ArgumentNullException(nameof(commandProcessor));
+            LoadAllowedUsers(_Settings.CurrentValue);
+            _Settings.OnChange(LoadAllowedUsers);
+        }
+
+        private void LoadAllowedUsers(Settings newSettings)
+        {
+            _Logger.LogDebug("Loading allowed users set...");
+            _AllowedUsers = new HashSet<string>();
+            foreach (string username in newSettings.DebugCommandsAllowedUsers)
+            {
+                var sanitized = username.Trim().ToLower();
+                if (!string.IsNullOrWhiteSpace(sanitized))
+                {
+                    _AllowedUsers.Add(sanitized);
+                }
+            }
+
+            if (newSettings.RestrictDebugCommandsToAllowedUsers)
+            {
+                _Logger.LogInformation("Debug commands are restricted to: {users}", string.Join(", ", _AllowedUsers));
+            }
+            else
+            {
+                _Logger.LogInformation("Debug commands are available to all users.");
+            }
         }
 
         public bool Init()
         {
-            if (string.IsNullOrWhiteSpace(_Settings.AccessToken))
+            if (string.IsNullOrWhiteSpace(_Settings.CurrentValue.AccessToken))
             {
                 _Logger.LogError("Please set an access token in appsettings.json: https://id.twitch.tv/oauth2/authorize?response_type=token&client_id=z6b0tfei2a12oebv47aat3vckndozj&redirect_uri=https://twitchapps.com/tokengen/&scope=chat%3Aread");
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(_Settings.BotUsername))
+            if (string.IsNullOrWhiteSpace(_Settings.CurrentValue.BotUsername))
             {
                 _Logger.LogError("Please set a bot username in appsettings.json.");
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(_Settings.Channel))
+            if (string.IsNullOrWhiteSpace(_Settings.CurrentValue.Channel))
             {
                 _Logger.LogError("Please set a channel name to read from in appsettings.json.");
                 return false;
             }
 
-            ConnectionCredentials credentials = new ConnectionCredentials(_Settings.BotUsername, _Settings.AccessToken);
+            ConnectionCredentials credentials = new ConnectionCredentials(_Settings.CurrentValue.BotUsername, _Settings.CurrentValue.AccessToken);
             var clientOptions = new ClientOptions
             {
                 MessagesAllowedInPeriod = 100,
@@ -52,15 +78,12 @@ namespace DynamicChatIntegration
             };
             WebSocketClient customClient = new WebSocketClient(clientOptions);
             _Client = new TwitchClient(customClient);
-            _Client.Initialize(credentials, _Settings.Channel);
+            _Client.Initialize(credentials, _Settings.CurrentValue.Channel);
 
             _Client.OnLog += Client_OnLog;
             _Client.OnJoinedChannel += Client_OnJoinedChannel;
             _Client.OnMessageReceived += Client_OnMessageReceived;
             _Client.OnConnected += Client_OnConnected;
-
-            LoadAllowedUsers();
-            _Settings.RegisterChangeCallback(_ => { LoadAllowedUsers(); }, null);
 
             return true;
         }
@@ -73,25 +96,6 @@ namespace DynamicChatIntegration
         public void Disconnect()
         {
             _Client.Disconnect();
-        }
-
-        private void LoadAllowedUsers()
-        {
-            _Logger.LogDebug("Loading allowed users");
-            _AllowedDebugUsernames = new HashSet<string>();
-            foreach (string username in _Settings.DebugCommandsAllowedUsers) {
-                var sanitized = username.Trim().ToLower();
-                if (!string.IsNullOrWhiteSpace(sanitized))
-                {
-                    _AllowedDebugUsernames.Add(sanitized);
-                }
-            }
-            _Logger.LogInformation("Debug command access is currently: {status}",
-                _Settings.RestrictDebugCommandsToAllowedUsers ? "Restricted to allowed users only" : "Unrestricted (anyone can access)");
-            if (_Settings.RestrictDebugCommandsToAllowedUsers)
-            {
-                _Logger.LogInformation("Loaded allowlist: {users}", string.Join(", ", _AllowedDebugUsernames));
-            }
         }
 
         private void Client_OnLog(object sender, OnLogArgs e)
@@ -117,9 +121,9 @@ namespace DynamicChatIntegration
 
             // If we are restricting debug commands, assert user is in allowlist
             bool allowDebugCmds;
-            if (_Settings.RestrictDebugCommandsToAllowedUsers)
+            if (_Settings.CurrentValue.RestrictDebugCommandsToAllowedUsers)
             {
-                allowDebugCmds = _AllowedDebugUsernames.Contains(user.ToLower());
+                allowDebugCmds = _Settings.CurrentValue.DebugCommandsAllowedUsers.Contains(user.ToLower());
             }
             else
             {
