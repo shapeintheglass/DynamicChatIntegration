@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DynamicChatIntegration": {
+      "commandName": "Project",
+      "commandLineArgs": "--verbose"
+    }
+  }
+}
